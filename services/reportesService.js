@@ -37,11 +37,11 @@ export async function getReporteAsistencia({ rango, fecha, semana, mes, id_direc
     const diff = baseDate.getDate() - day + (day === 0 ? -6 : 1); // Ajuste si es domingo
     
     const monday = new Date(baseDate.setDate(diff));
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
+    const saturday = new Date(monday);
+    saturday.setDate(monday.getDate() + 5);
     
     startStr = monday.toISOString().split('T')[0];
-    endStr = sunday.toISOString().split('T')[0];
+    endStr = saturday.toISOString().split('T')[0];
     
     dateFilter = { [Op.between]: [startStr, endStr] };
     periodoStr = `Semana del ${startStr} al ${endStr}`;
