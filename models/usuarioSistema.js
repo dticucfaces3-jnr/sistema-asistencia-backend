@@ -20,7 +20,7 @@ const UsuarioSistema = sequelize.define('Usuarios_Sistema', {
     type: DataTypes.STRING(50),
     allowNull: false
   },
-  cedula_empleado: {
+  id_empleado: {
     type: DataTypes.INTEGER,
     allowNull: false
   },

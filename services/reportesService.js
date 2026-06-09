@@ -113,7 +113,7 @@ export async function getReporteAsistencia({ rango, fecha, semana, mes, id_direc
   const asistencias = await Asistencia.findAll(queryOptions);
 
   const dataMapeada = asistencias.map(a => ({
-    Cedula: a.cedula,
+    Cedula: a.Empleado ? a.Empleado.cedula : 'N/A',
     Nombre: a.Empleado ? a.Empleado.primer_nombre : 'N/A',
     Apellido: a.Empleado ? a.Empleado.primer_apellido : 'N/A',
     Fecha: a.fecha,

@@ -64,8 +64,8 @@ export async function getTrabajadores(req, res) {
 
 export async function actualizarTrabajador(req, res) {
   try {
-    const { cedula } = req.params;
-    const result = await trabajadoresService.actualizarTrabajador(cedula, req.body, req);
+    const { id_empleado } = req.params;
+    const result = await trabajadoresService.actualizarTrabajador(id_empleado, req.body, req);
     return res.json({
       status: 'success',
       message: 'Trabajador actualizado con éxito',
@@ -77,5 +77,40 @@ export async function actualizarTrabajador(req, res) {
     }
     console.error('Error al actualizar trabajador:', error);
     return res.status(500).json({ status: 'error', message: 'Error interno del servidor al actualizar trabajador' });
+  }
+}
+
+export async function agregarHuella(req, res) {
+  try {
+    const { id_empleado } = req.params;
+    const { huella_template } = req.body;
+    const result = await trabajadoresService.agregarHuella(id_empleado, huella_template, req);
+    return res.status(201).json({
+      status: 'success',
+      data: result
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ status: 'error', message: error.message });
+    }
+    console.error('Error al agregar huella:', error);
+    return res.status(500).json({ status: 'error', message: 'Error interno del servidor al agregar huella' });
+  }
+}
+
+export async function eliminarHuella(req, res) {
+  try {
+    const { id_huella } = req.params;
+    const result = await trabajadoresService.eliminarHuella(id_huella, req);
+    return res.json({
+      status: 'success',
+      message: result.message
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ status: 'error', message: error.message });
+    }
+    console.error('Error al eliminar huella:', error);
+    return res.status(500).json({ status: 'error', message: 'Error interno del servidor al eliminar huella' });
   }
 }

@@ -87,10 +87,10 @@ async function login(email, password) {
     if (sysUser) {
       user = sysUser;
       userRole = sysUser.rol;
-      cedulaEmpleado = sysUser.cedula_empleado;
       if (sysUser.Empleado) {
         userName = `${sysUser.Empleado.primer_nombre} ${sysUser.Empleado.primer_apellido}`;
         idDireccion = sysUser.Empleado.id_direccion;
+        cedulaEmpleado = sysUser.Empleado.cedula;
       } else {
         userName = sysUser.username;
       }
@@ -162,13 +162,14 @@ async function login(email, password) {
       rol: userRole,
       isDeveloper: isDev,
       id_direccion: idDireccion,
-      cedula_empleado: cedulaEmpleado
+      cedula_empleado: cedulaEmpleado,
+      id_empleado: !isDev ? user.id_empleado : null
     },
     process.env.JWT_SECRET || 'super_secret_token_12345',
     { expiresIn: '8h' }
   );
 
-  return { token, userName, userRole, idDireccion, email, cedulaEmpleado };
+  return { token, userName, userRole, idDireccion, email, cedulaEmpleado, id_empleado: !isDev ? user.id_empleado : null };
 }
 
 /**
@@ -285,8 +286,8 @@ async function recoverPassword(email) {
  * - Registra el usuario con email_confirmado = false y le genera un código de confirmación.
  * - Envía el código de confirmación al email registrado (username).
  */
-async function register(username, password, rol, cedula_empleado) {
-  if (!username || !password || !rol || !cedula_empleado) {
+async function register(username, password, rol, id_empleado) {
+  if (!username || !password || !rol || !id_empleado) {
     const error = new Error('Faltan campos obligatorios para el registro');
     error.statusCode = 400;
     throw error;
@@ -299,11 +300,11 @@ async function register(username, password, rol, cedula_empleado) {
   }
 
   // Verificar que el empleado exista en la nómina
-  const empleado = await Empleado.findByPk(cedula_empleado, {
+  const empleado = await Empleado.findByPk(id_empleado, {
     include: [Direccion]
   });
   if (!empleado) {
-    const error = new Error(`El empleado con cédula ${cedula_empleado} no existe en el sistema`);
+    const error = new Error(`El empleado con ID ${id_empleado} no existe en el sistema`);
     error.statusCode = 404;
     throw error;
   }
@@ -336,9 +337,9 @@ async function register(username, password, rol, cedula_empleado) {
   }
 
   // Verificar que el empleado no tenga una cuenta ya asociada
-  const usuarioExistente = await UsuarioSistema.findOne({ where: { cedula_empleado } });
+  const usuarioExistente = await UsuarioSistema.findOne({ where: { id_empleado } });
   if (usuarioExistente) {
-    const error = new Error(`El empleado con cédula ${cedula_empleado} ya posee una cuenta registrada`);
+    const error = new Error(`El empleado con ID ${id_empleado} ya posee una cuenta registrada`);
     error.statusCode = 409;
     throw error;
   }
@@ -354,40 +355,14 @@ async function register(username, password, rol, cedula_empleado) {
   const salt = await bcrypt.genSalt(10);
   const password_hash = await bcrypt.hash(password, salt);
 
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-
   const nuevoUsuario = await UsuarioSistema.create({
     username,
     password_hash,
     rol,
-    cedula_empleado,
+    id_empleado,
     email_confirmado: false,
-    codigo_confirmacion: code
+    codigo_confirmacion: null
   });
-
-  // Enviar el correo de confirmación de forma asíncrona
-  const mailSubject = 'Activa tu Cuenta - Sistema de Asistencia BioMini';
-  const mailText = `Hola, tu código de confirmación es: ${code}`;
-  const mailHtml = `
-    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-      <h2 style="color: #000661; border-bottom: 2px solid #000661; padding-bottom: 10px;">Verificación de Cuenta</h2>
-      <p>Hola <strong>${empleado.primer_nombre}</strong>,</p>
-      <p>Se ha registrado tu cuenta como <strong>${rol}</strong> en el Sistema de Asistencia de FaCES.</p>
-      <p>Para activar tu cuenta y poder iniciar sesión, usa el siguiente código de confirmación de 6 dígitos:</p>
-      <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; font-size: 24px; font-weight: bold; text-align: center; margin: 20px 0; border: 1px solid #e5e7eb; color: #000661; letter-spacing: 2px;">
-        ${code}
-      </div>
-      <p style="color: #555; font-size: 13px;">⚠️ Introduce este código al intentar iniciar sesión por primera vez.</p>
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-      <p style="font-size: 11px; color: #777;">&copy; ${new Date().getFullYear()} Dirección de Tecnología, Información y Comunicación (DTIC). FaCES - Universidad de Carabobo.</p>
-    </div>
-  `;
-
-  try {
-    await sendMail({ to: username, subject: mailSubject, text: mailText, html: mailHtml });
-  } catch (error) {
-    console.log(`[DESARROLLO] Falló envío SMTP. Código para ${username} es: ${code}`);
-  }
 
   return nuevoUsuario;
 }
@@ -420,41 +395,24 @@ async function createDeveloper(email, password) {
 
   const salt = await bcrypt.genSalt(10);
   const password_hash = await bcrypt.hash(password, salt);
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
 
   const dev = await Desarrollador.create({
     email,
     password_hash,
     email_confirmado: false,
-    codigo_confirmacion: code
+    codigo_confirmacion: null
   });
-
-  const mailSubject = 'Activa tu Cuenta de Desarrollador - Sistema de Asistencia BioMini';
-  const mailText = `Hola, tu código de confirmación de desarrollador es: ${code}`;
-  const mailHtml = `
-    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-      <h2 style="color: #000661; border-bottom: 2px solid #000661; padding-bottom: 10px;">Verificación de Desarrollador</h2>
-      <p>Hola,</p>
-      <p>Has sido registrado como **Desarrollador Tecnológico** en el Sistema de Asistencia de FaCES.</p>
-      <p>Para activar tu cuenta y poder iniciar sesión, usa el siguiente código de confirmación de 6 dígitos:</p>
-      <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; font-size: 24px; font-weight: bold; text-align: center; margin: 20px 0; border: 1px solid #e5e7eb; color: #000661; letter-spacing: 2px;">
-        ${code}
-      </div>
-      <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-      <p style="font-size: 11px; color: #777;">&copy; ${new Date().getFullYear()} Dirección de Tecnología, Información y Comunicación (DTIC). FaCES - Universidad de Carabobo.</p>
-    </div>
-  `;
-
-  try {
-    await sendMail({ to: email, subject: mailSubject, text: mailText, html: mailHtml });
-  } catch (error) {
-    console.log(`[DESARROLLO] Falló envío SMTP. Código desarrollador para ${email} es: ${code}`);
-  }
 
   return dev;
 }
 
-async function deleteDeveloper(id) {
+async function deleteDeveloper(id, requesterEmail) {
+  if (requesterEmail !== 'dticucfaces3@gmail.com') {
+    const error = new Error('Solo el Desarrollador Root del sistema puede eliminar desarrolladores');
+    error.statusCode = 403;
+    throw error;
+  }
+
   const dev = await Desarrollador.findByPk(id);
   if (!dev) {
     const error = new Error('Desarrollador no encontrado');
@@ -490,7 +448,13 @@ async function listAdmins() {
   });
 }
 
-async function deleteAdmin(id) {
+async function deleteAdmin(id, requesterEmail) {
+  if (requesterEmail !== 'dticucfaces3@gmail.com') {
+    const error = new Error('Solo el Desarrollador Root del sistema puede eliminar administradores');
+    error.statusCode = 403;
+    throw error;
+  }
+
   const admin = await UsuarioSistema.findByPk(id);
   if (!admin) {
     const error = new Error('Administrador no encontrado');

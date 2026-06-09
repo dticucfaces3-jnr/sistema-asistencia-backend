@@ -25,24 +25,24 @@ Empleado.belongsTo(Horario, { foreignKey: 'id_horario' });
 Horario.hasMany(Empleado, { foreignKey: 'id_horario' });
 
 // Usuarios_Sistema -> Empleados
-UsuarioSistema.belongsTo(Empleado, { foreignKey: 'cedula_empleado', targetKey: 'cedula' });
-Empleado.hasOne(UsuarioSistema, { foreignKey: 'cedula_empleado', sourceKey: 'cedula' });
+UsuarioSistema.belongsTo(Empleado, { foreignKey: 'id_empleado' });
+Empleado.hasOne(UsuarioSistema, { foreignKey: 'id_empleado' });
 
 // Huellas -> Empleados
-Huella.belongsTo(Empleado, { foreignKey: 'cedula', targetKey: 'cedula' });
-Empleado.hasMany(Huella, { foreignKey: 'cedula', sourceKey: 'cedula' });
+Huella.belongsTo(Empleado, { foreignKey: 'id_empleado' });
+Empleado.hasMany(Huella, { foreignKey: 'id_empleado' });
 
 // Asistencias -> Empleados
-Asistencia.belongsTo(Empleado, { foreignKey: 'cedula', targetKey: 'cedula' });
-Empleado.hasMany(Asistencia, { foreignKey: 'cedula', sourceKey: 'cedula' });
+Asistencia.belongsTo(Empleado, { foreignKey: 'id_empleado' });
+Empleado.hasMany(Asistencia, { foreignKey: 'id_empleado' });
 
 // Asistencias -> Usuarios_Sistema (Auditoría)
 Asistencia.belongsTo(UsuarioSistema, { foreignKey: 'modificado_por' });
 UsuarioSistema.hasMany(Asistencia, { foreignKey: 'modificado_por' });
 
 // Planificacion_Excepciones -> Empleados
-PlanificacionExcepcion.belongsTo(Empleado, { foreignKey: 'cedula', targetKey: 'cedula' });
-Empleado.hasMany(PlanificacionExcepcion, { foreignKey: 'cedula', sourceKey: 'cedula' });
+PlanificacionExcepcion.belongsTo(Empleado, { foreignKey: 'id_empleado' });
+Empleado.hasMany(PlanificacionExcepcion, { foreignKey: 'id_empleado' });
 
 // Planificacion_Excepciones -> Usuarios_Sistema (Auditoría)
 PlanificacionExcepcion.belongsTo(UsuarioSistema, { foreignKey: 'registrado_por' });

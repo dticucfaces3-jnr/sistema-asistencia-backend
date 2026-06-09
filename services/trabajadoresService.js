@@ -11,8 +11,9 @@ async function getHuellas() {
   });
 
   return huellas.map(h => ({
-    trabajador_id: h.cedula,
-    huella_template: h.template_huella.toString('base64')
+    trabajador_id: h.id_empleado,
+    huella_template: h.template_huella.toString('base64'),
+    id_huella: h.id_huella
   }));
 }
 
@@ -29,8 +30,8 @@ async function registrarTrabajador(data, req) {
     huella_template
   } = data;
 
-  if (!primer_nombre || !primer_apellido || !cedula || !id_departamento || !id_cargo || !id_horario || !huella_template) {
-    const error = new Error('Faltan campos obligatorios para el registro');
+  if (!primer_nombre || !primer_apellido || !cedula || !id_departamento || !id_cargo || !id_horario || (!huella_template && (!data.huella_templates || data.huella_templates.length === 0))) {
+    const error = new Error('Faltan campos obligatorios para el registro (debe registrar al menos una huella)');
     error.statusCode = 400;
     throw error;
   }
@@ -51,7 +52,7 @@ async function registrarTrabajador(data, req) {
     throw error;
   }
 
-  const existeEmpleado = await Empleado.findByPk(numericCedula);
+  const existeEmpleado = await Empleado.findOne({ where: { cedula: numericCedula } });
   if (existeEmpleado) {
     const error = new Error(`El empleado con cédula ${numericCedula} ya se encuentra registrado`);
     error.statusCode = 409;
@@ -74,7 +75,26 @@ async function registrarTrabajador(data, req) {
     }
   }
 
-  const bufferHuella = Buffer.from(huella_template, 'base64');
+  // Validar huellas idénticas byte a byte
+  if (data.huella_templates && Array.isArray(data.huella_templates)) {
+    for (const temp of data.huella_templates) {
+      const buf = Buffer.from(temp, 'base64');
+      const existe = await Huella.findOne({ where: { template_huella: buf } });
+      if (existe) {
+        const error = new Error('Una de las huellas dactilares ya se encuentra registrada en el sistema.');
+        error.statusCode = 409;
+        throw error;
+      }
+    }
+  } else if (huella_template) {
+    const bufferHuella = Buffer.from(huella_template, 'base64');
+    const existeHuellaIdentica = await Huella.findOne({ where: { template_huella: bufferHuella } });
+    if (existeHuellaIdentica) {
+      const error = new Error('Esta huella dactilar ya se encuentra registrada en el sistema.');
+      error.statusCode = 409;
+      throw error;
+    }
+  }
 
   const nuevoEmpleado = await Empleado.create({
     cedula: numericCedula,
@@ -88,15 +108,26 @@ async function registrarTrabajador(data, req) {
     activo: true
   });
 
-  await Huella.create({
-    cedula: numericCedula,
-    template_huella: bufferHuella
-  });
+  if (data.huella_templates && Array.isArray(data.huella_templates)) {
+    for (const temp of data.huella_templates) {
+      const buffer = Buffer.from(temp, 'base64');
+      await Huella.create({
+        id_empleado: nuevoEmpleado.id_empleado,
+        template_huella: buffer
+      });
+    }
+  } else if (huella_template) {
+    const bufferHuella = Buffer.from(huella_template, 'base64');
+    await Huella.create({
+      id_empleado: nuevoEmpleado.id_empleado,
+      template_huella: bufferHuella
+    });
+  }
 
   // Registrar en tabla de Auditoría
-  await registrarAuditoria('Empleados', nuevoEmpleado.cedula, 'INSERT', null, nuevoEmpleado.toJSON(), req);
+  await registrarAuditoria('Empleados', nuevoEmpleado.id_empleado, 'INSERT', null, nuevoEmpleado.toJSON(), req);
 
-  return { trabajador_id: nuevoEmpleado.cedula };
+  return { trabajador_id: nuevoEmpleado.id_empleado };
 }
 
 async function getDepartamentos() {
@@ -161,7 +192,7 @@ async function getHorarios() {
 async function getTrabajadores(req) {
   const queryOptions = {
     where: { activo: true },
-    include: [Direccion, Cargo, Horario]
+    include: [Direccion, Cargo, Horario, Huella]
   };
 
   // Filtrar por la dirección asignada del administrador o supervisor
@@ -175,10 +206,10 @@ async function getTrabajadores(req) {
   return await Empleado.findAll(queryOptions);
 }
 
-async function actualizarTrabajador(cedula, data, req) {
-  const empleado = await Empleado.findByPk(cedula);
+async function actualizarTrabajador(id_empleado, data, req) {
+  const empleado = await Empleado.findByPk(id_empleado);
   if (!empleado) {
-    const error = new Error(`El empleado con cédula ${cedula} no existe`);
+    const error = new Error(`El empleado con ID ${id_empleado} no existe`);
     error.statusCode = 404;
     throw error;
   }
@@ -209,8 +240,8 @@ async function actualizarTrabajador(cedula, data, req) {
         id_direccion: targetDir,
         id_cargo: 3,
         activo: true,
-        cedula: {
-          [Op.ne]: empleado.cedula
+        id_empleado: {
+          [Op.ne]: empleado.id_empleado
         }
       }
     });
@@ -224,6 +255,29 @@ async function actualizarTrabajador(cedula, data, req) {
   const valoresAnteriores = empleado.toJSON();
 
   // Actualizar campos
+  if (data.cedula !== undefined) {
+    const numericCedula = parseInt(data.cedula.toString().replace(/\D/g, ''), 10);
+    if (isNaN(numericCedula)) {
+      const error = new Error('Cédula inválida. Debe contener caracteres numéricos');
+      error.statusCode = 400;
+      throw error;
+    }
+    const existeConCedula = await Empleado.findOne({
+      where: {
+        cedula: numericCedula,
+        id_empleado: {
+          [Op.ne]: empleado.id_empleado
+        }
+      }
+    });
+    if (existeConCedula) {
+      const error = new Error(`La cédula ${numericCedula} ya se encuentra asignada a otro empleado`);
+      error.statusCode = 409;
+      throw error;
+    }
+    empleado.cedula = numericCedula;
+  }
+
   empleado.primer_nombre = data.primer_nombre !== undefined ? data.primer_nombre : empleado.primer_nombre;
   empleado.segundo_nombre = data.segundo_nombre !== undefined ? data.segundo_nombre : empleado.segundo_nombre;
   empleado.primer_apellido = data.primer_apellido !== undefined ? data.primer_apellido : empleado.primer_apellido;
@@ -240,9 +294,87 @@ async function actualizarTrabajador(cedula, data, req) {
   await empleado.save();
 
   // Registrar auditoría de actualización
-  await registrarAuditoria('Empleados', empleado.cedula, 'UPDATE', valoresAnteriores, empleado.toJSON(), req);
+  await registrarAuditoria('Empleados', empleado.id_empleado, 'UPDATE', valoresAnteriores, empleado.toJSON(), req);
 
   return empleado;
+}
+
+async function agregarHuella(id_empleado, huella_template, req) {
+  if (!id_empleado || !huella_template) {
+    const error = new Error('id_empleado y huella_template son requeridos');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const empleado = await Empleado.findByPk(id_empleado);
+  if (!empleado) {
+    const error = new Error(`El empleado con ID ${id_empleado} no existe`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Validar seguridad por direccion para Administrador
+  if (req && req.user && req.user.rol === 'Administrador') {
+    if (empleado.id_direccion !== req.user.id_direccion) {
+      const error = new Error('No tiene privilegios para gestionar huellas de otra dirección.');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  // Validar cantidad máxima de huellas
+  const totalHuellas = await Huella.count({ where: { id_empleado } });
+  if (totalHuellas >= 3) {
+    const error = new Error('Límite alcanzado. Solo se permiten hasta 3 huellas por trabajador.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const bufferHuella = Buffer.from(huella_template, 'base64');
+
+  // Validar huella idéntica byte a byte
+  const existeHuellaIdentica = await Huella.findOne({ where: { template_huella: bufferHuella } });
+  if (existeHuellaIdentica) {
+    const error = new Error('Esta huella dactilar ya se encuentra registrada en el sistema.');
+    error.statusCode = 409;
+    throw error;
+  }
+
+  const nuevaHuella = await Huella.create({
+    id_empleado,
+    template_huella: bufferHuella
+  });
+
+  await registrarAuditoria('Huellas', nuevaHuella.id_huella, 'INSERT', null, nuevaHuella.toJSON(), req);
+
+  return nuevaHuella;
+}
+
+async function eliminarHuella(id_huella, req) {
+  const huella = await Huella.findByPk(id_huella, {
+    include: [Empleado]
+  });
+  if (!huella) {
+    const error = new Error('Huella no encontrada');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Validar seguridad por direccion para Administrador
+  if (req && req.user && req.user.rol === 'Administrador') {
+    if (huella.Empleado && huella.Empleado.id_direccion !== req.user.id_direccion) {
+      const error = new Error('No tiene privilegios para eliminar huellas de otra dirección.');
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  const valoresAnteriores = huella.toJSON();
+  await huella.destroy();
+
+  await registrarAuditoria('Huellas', id_huella, 'DELETE', valoresAnteriores, null, req);
+
+  return { message: 'Huella eliminada exitosamente' };
 }
 
 export {
@@ -252,5 +384,7 @@ export {
   getCargos,
   getHorarios,
   getTrabajadores,
-  actualizarTrabajador
+  actualizarTrabajador,
+  agregarHuella,
+  eliminarHuella
 };

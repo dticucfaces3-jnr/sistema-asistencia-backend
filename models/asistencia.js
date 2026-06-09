@@ -7,7 +7,7 @@ const Asistencia = sequelize.define('Asistencias', {
     primaryKey: true,
     autoIncrement: true
   },
-  cedula: {
+  id_empleado: {
     type: DataTypes.INTEGER,
     allowNull: false
   },

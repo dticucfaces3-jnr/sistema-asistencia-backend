@@ -7,7 +7,7 @@ const Huella = sequelize.define('Huellas', {
     primaryKey: true,
     autoIncrement: true
   },
-  cedula: {
+  id_empleado: {
     type: DataTypes.INTEGER,
     allowNull: false
   },

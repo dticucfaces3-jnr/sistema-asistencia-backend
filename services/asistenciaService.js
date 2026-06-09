@@ -27,7 +27,7 @@ async function marcarAsistencia(trabajador_id, req) {
 
   let asistenciaHoy = await Asistencia.findOne({
     where: {
-      cedula: numericId,
+      id_empleado: numericId,
       fecha: dateStr
     }
   });
@@ -36,7 +36,7 @@ async function marcarAsistencia(trabajador_id, req) {
 
   if (!asistenciaHoy) {
     const nuevaAsistencia = await Asistencia.create({
-      cedula: numericId,
+      id_empleado: numericId,
       fecha: dateStr,
       hora_entrada: timeStr,
       hora_salida: null
@@ -80,14 +80,14 @@ async function sincronizarLote(registros, req) {
 
     let asistencia = await Asistencia.findOne({
       where: {
-        cedula: numericId,
+        id_empleado: numericId,
         fecha: fecha
       }
     });
 
     if (!asistencia) {
       const nuevaAsistencia = await Asistencia.create({
-        cedula: numericId,
+        id_empleado: numericId,
         fecha: fecha,
         hora_entrada: hora,
         hora_salida: null

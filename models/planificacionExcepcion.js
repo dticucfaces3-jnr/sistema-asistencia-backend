@@ -7,7 +7,7 @@ const PlanificacionExcepcion = sequelize.define('Planificacion_Excepciones', {
     primaryKey: true,
     autoIncrement: true
   },
-  cedula: {
+  id_empleado: {
     type: DataTypes.INTEGER,
     allowNull: true
   },

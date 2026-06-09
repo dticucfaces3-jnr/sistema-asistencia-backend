@@ -85,35 +85,7 @@ export async function seedDatabase() {
     }
     let horarios = await Horario.findAll();
 
-    // 4. Sembrar Empleados semilla (ficticios para vinculación inicial de administradores por dirección)
-    const empleadosExistentes = await Empleado.count();
-    if (empleadosExistentes === 0) {
-      console.log('  -> Sembrando Empleados semilla para inicialización de Administradores...');
-      
-      const empleadosSemilla = direcciones.map((dir) => {
-        const idDir = dir.id_direccion;
-        // Limpiamos palabras redundantes para el apellido
-        const apellidoLimpio = dir.nombre_direccion
-          .replace('Dirección de la Escuela de ', '')
-          .replace('Dirección de ', '')
-          .split(' ')[0];
-
-        return {
-          cedula: 10000000 + idDir, // Cédula ficticia consecutiva (10000001, 10000002, etc.)
-          primer_nombre: 'Empleado',
-          segundo_nombre: 'Semilla',
-          primer_apellido: apellidoLimpio,
-          segundo_apellido: 'FACES',
-          id_direccion: idDir,
-          id_cargo: 2, // Cargo: 'empleados'
-          id_horario: 1, // Horario mañana administración
-          activo: true
-        };
-      });
-
-      await Empleado.bulkCreate(empleadosSemilla);
-      console.log('✅ Semillero inicial de base de datos completado exitosamente.');
-    }
+    console.log('✅ Semillero inicial de base de datos completado exitosamente.');
 
   } catch (error) {
     console.error('⚠️ Error al sembrar los datos iniciales de la base de datos:', error);

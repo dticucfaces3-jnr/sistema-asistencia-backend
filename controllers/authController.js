@@ -59,8 +59,8 @@ export async function recoverPassword(req, res) {
 
 export async function register(req, res) {
   try {
-    const { username, password, rol, cedula_empleado } = req.body;
-    const result = await authService.register(username, password, rol, cedula_empleado);
+    const { username, password, rol, id_empleado } = req.body;
+    const result = await authService.register(username, password, rol, id_empleado);
     return res.status(201).json({
       status: 'success',
       message: 'Usuario registrado con éxito. Código de activación enviado por correo.',
@@ -100,7 +100,7 @@ export async function createDeveloper(req, res) {
 export async function deleteDeveloper(req, res) {
   try {
     const { id } = req.params;
-    const result = await authService.deleteDeveloper(id);
+    const result = await authService.deleteDeveloper(id, req.user.username);
     return res.json({
       status: 'success',
       message: result.message
@@ -143,7 +143,7 @@ export async function listAdmins(req, res) {
 export async function deleteAdmin(req, res) {
   try {
     const { id } = req.params;
-    const result = await authService.deleteAdmin(id);
+    const result = await authService.deleteAdmin(id, req.user.username);
     return res.json({
       status: 'success',
       message: result.message

@@ -37,7 +37,7 @@ async function startServer() {
     console.log('🔄 Conexión a MySQL establecida correctamente.');
 
     // Sincronizar modelos con la base de datos (crea tablas si no existen)
-    await sequelize.sync();
+    await sequelize.sync({ force: false });
     console.log('✅ Modelos de Sequelize sincronizados con la Base de Datos.');
 
     // Sembrar base de datos con direcciones, cargos, horarios y empleados semilla obligatorios

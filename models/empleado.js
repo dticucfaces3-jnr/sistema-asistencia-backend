@@ -2,10 +2,16 @@ import { DataTypes } from 'sequelize';
 import sequelize from '../config/db.js';
 
 const Empleado = sequelize.define('Empleados', {
-  cedula: {
+  id_empleado: {
     type: DataTypes.INTEGER,
     primaryKey: true,
+    autoIncrement: true,
     allowNull: false
+  },
+  cedula: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    unique: true
   },
   primer_nombre: {
     type: DataTypes.STRING(50),
