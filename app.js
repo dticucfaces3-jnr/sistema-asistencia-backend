@@ -40,6 +40,23 @@ async function startServer() {
     await sequelize.sync({ force: false });
     console.log('✅ Modelos de Sequelize sincronizados con la Base de Datos.');
 
+    // Asegurar columna motivo_inactividad si no existe en la tabla Empleados
+    try {
+      await sequelize.query(`
+        ALTER TABLE Empleados ADD COLUMN IF NOT EXISTS motivo_inactividad VARCHAR(255) NULL;
+      `);
+      console.log('✅ Columna motivo_inactividad verificada/agregada.');
+    } catch (e) {
+      try {
+        await sequelize.query(`ALTER TABLE Empleados ADD COLUMN motivo_inactividad VARCHAR(255) NULL;`);
+        console.log('✅ Columna motivo_inactividad agregada a la tabla Empleados.');
+      } catch (err) {
+        if (!err.message.includes('duplicate column') && !err.message.includes('already exists') && !err.message.includes('Duplicate column')) {
+          console.error('⚠️ Error al verificar/agregar la columna motivo_inactividad:', err.message);
+        }
+      }
+    }
+
     // Sembrar base de datos con direcciones, cargos, horarios y empleados semilla obligatorios
     const { seedDatabase } = await import('./services/seedService.js');
     await seedDatabase();

@@ -23,12 +23,12 @@ export async function getReporteAsistencia(req, res) {
     });
 
     if (tipo.toLowerCase() === 'excel') {
-      const buffer = generarExcel(result);
+      const buffer = generarExcel({ ...result, rango });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=reporte_asistencia_${rango}.xlsx`);
       return res.send(buffer);
     } else if (tipo.toLowerCase() === 'pdf') {
-      return generarPDF(result, res);
+      return generarPDF({ ...result, rango }, res);
     } else {
       return res.status(400).json({ status: 'error', message: 'Tipo de reporte inválido (use pdf o excel)' });
     }

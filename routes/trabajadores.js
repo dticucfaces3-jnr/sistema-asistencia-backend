@@ -12,9 +12,11 @@ router.post('/', verifyToken(['Developer', 'Administrador']), trabajadoresContro
 router.put('/:id_empleado', verifyToken(['Developer', 'Administrador']), trabajadoresController.actualizarTrabajador);
 router.post('/:id_empleado/huellas', verifyToken(['Developer', 'Administrador']), trabajadoresController.agregarHuella);
 router.delete('/huellas/:id_huella', verifyToken(['Developer', 'Administrador']), trabajadoresController.eliminarHuella);
+router.get('/inactivos', verifyToken(['Developer', 'Administrador', 'Supervisor']), trabajadoresController.getTrabajadoresInactivos);
 router.get('/departamentos', verifyToken(['Developer', 'Administrador']), trabajadoresController.getDepartamentos);
 router.get('/cargos', verifyToken(['Developer', 'Administrador']), trabajadoresController.getCargos);
 router.get('/horarios', verifyToken(['Developer', 'Administrador']), trabajadoresController.getHorarios);
 router.get('/', verifyToken(['Developer', 'Administrador', 'Supervisor']), trabajadoresController.getTrabajadores);
+router.delete('/:id_empleado', verifyToken(['Developer']), trabajadoresController.eliminarTrabajador);
 
 export default router;

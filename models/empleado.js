@@ -44,6 +44,10 @@ const Empleado = sequelize.define('Empleados', {
   activo: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+  motivo_inactividad: {
+    type: DataTypes.STRING(255),
+    allowNull: true
   }
 });
 

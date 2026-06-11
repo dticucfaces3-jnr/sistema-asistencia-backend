@@ -1,4 +1,4 @@
-import { Empleado, Huella, Direccion, Cargo, Horario } from '../models/index.js';
+import { Empleado, Huella, Direccion, Cargo, Horario, UsuarioSistema, Asistencia, PlanificacionExcepcion, sequelize } from '../models/index.js';
 import { registrarAuditoria } from './auditoriaService.js';
 import { Op } from 'sequelize';
 
@@ -284,7 +284,19 @@ async function actualizarTrabajador(id_empleado, data, req) {
   empleado.segundo_apellido = data.segundo_apellido !== undefined ? data.segundo_apellido : empleado.segundo_apellido;
   empleado.id_cargo = data.id_cargo !== undefined ? parseInt(data.id_cargo, 10) : empleado.id_cargo;
   empleado.id_horario = data.id_horario !== undefined ? parseInt(data.id_horario, 10) : empleado.id_horario;
-  empleado.activo = data.activo !== undefined ? data.activo : empleado.activo;
+  
+  if (data.activo === false) {
+    if (!data.motivo_inactividad || data.motivo_inactividad.trim() === '') {
+      const error = new Error('Debe especificar un motivo de inactividad al desactivar al trabajador');
+      error.statusCode = 400;
+      throw error;
+    }
+    empleado.motivo_inactividad = data.motivo_inactividad;
+    empleado.activo = false;
+  } else if (data.activo === true) {
+    empleado.activo = true;
+    empleado.motivo_inactividad = null;
+  }
 
   // Solo el Developer puede cambiar la dirección del empleado
   if (req && req.user && req.user.isDeveloper) {
@@ -377,6 +389,64 @@ async function eliminarHuella(id_huella, req) {
   return { message: 'Huella eliminada exitosamente' };
 }
 
+async function getTrabajadoresInactivos(req) {
+  const queryOptions = {
+    where: { activo: false },
+    include: [Direccion, Cargo, Horario, Huella]
+  };
+
+  // Filtrar por la dirección asignada del administrador o supervisor
+  if (req && req.user && !req.user.isDeveloper) {
+    const idDireccion = req.user.id_direccion;
+    if (idDireccion) {
+      queryOptions.where.id_direccion = idDireccion;
+    }
+  }
+
+  return await Empleado.findAll(queryOptions);
+}
+
+async function eliminarTrabajador(id_empleado, req) {
+  // 1. Restricción estricta de Desarrollador Root
+  if (!req || !req.user || req.user.username !== 'dticucfaces3@gmail.com') {
+    const error = new Error('Solo el Desarrollador Root del sistema puede eliminar trabajadores de la base de datos.');
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const empleado = await Empleado.findByPk(id_empleado);
+  if (!empleado) {
+    const error = new Error(`El empleado con ID ${id_empleado} no existe`);
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const valoresAnteriores = empleado.toJSON();
+
+  // 2. Ejecutar la eliminación en cascada en una transacción para evitar inconsistencias
+  await sequelize.transaction(async (t) => {
+    // a. Eliminar Huellas
+    await Huella.destroy({ where: { id_empleado }, transaction: t });
+
+    // b. Eliminar Asistencias
+    await Asistencia.destroy({ where: { id_empleado }, transaction: t });
+
+    // c. Eliminar Planificaciones Excepcionales
+    await PlanificacionExcepcion.destroy({ where: { id_empleado }, transaction: t });
+
+    // d. Eliminar Usuario de Sistema si tiene una cuenta asociada
+    await UsuarioSistema.destroy({ where: { id_empleado }, transaction: t });
+
+    // e. Eliminar Empleado
+    await empleado.destroy({ transaction: t });
+  });
+
+  // 3. Registrar en auditoría
+  await registrarAuditoria('Empleados', id_empleado, 'DELETE', valoresAnteriores, null, req);
+
+  return { message: 'Trabajador y sus registros asociados eliminados con éxito' };
+}
+
 export {
   getHuellas,
   registrarTrabajador,
@@ -386,5 +456,7 @@ export {
   getTrabajadores,
   actualizarTrabajador,
   agregarHuella,
-  eliminarHuella
+  eliminarHuella,
+  getTrabajadoresInactivos,
+  eliminarTrabajador
 };

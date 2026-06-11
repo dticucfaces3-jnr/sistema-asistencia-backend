@@ -114,3 +114,29 @@ export async function eliminarHuella(req, res) {
     return res.status(500).json({ status: 'error', message: 'Error interno del servidor al eliminar huella' });
   }
 }
+
+export async function getTrabajadoresInactivos(req, res) {
+  try {
+    const trabajadores = await trabajadoresService.getTrabajadoresInactivos(req);
+    return res.json(trabajadores);
+  } catch (error) {
+    return res.status(500).json({ status: 'error', message: error.message });
+  }
+}
+
+export async function eliminarTrabajador(req, res) {
+  try {
+    const { id_empleado } = req.params;
+    const result = await trabajadoresService.eliminarTrabajador(id_empleado, req);
+    return res.json({
+      status: 'success',
+      message: result.message
+    });
+  } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ status: 'error', message: error.message });
+    }
+    console.error('Error al eliminar trabajador:', error);
+    return res.status(500).json({ status: 'error', message: 'Error interno del servidor al eliminar trabajador' });
+  }
+}
