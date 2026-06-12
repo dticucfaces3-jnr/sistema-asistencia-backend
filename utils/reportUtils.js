@@ -3,6 +3,14 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
 
+// Helper para obtener YYYY-MM-DD en hora local
+function getLocalDateStr(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /**
  * Retorna el lunes y sábado correspondiente a una fecha YYYY-MM-DD.
  */
@@ -10,12 +18,13 @@ function getMondayAndSaturday(dateStr) {
   const date = new Date(dateStr + 'T12:00:00');
   const day = date.getDay(); // 0 = Domingo, 1 = Lunes...
   const diffToMonday = date.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(date.setDate(diffToMonday));
+  const monday = new Date(date);
+  monday.setDate(diffToMonday);
   const saturday = new Date(monday);
   saturday.setDate(monday.getDate() + 5);
   return {
-    mondayStr: monday.toISOString().split('T')[0],
-    saturdayStr: saturday.toISOString().split('T')[0]
+    mondayStr: getLocalDateStr(monday),
+    saturdayStr: getLocalDateStr(saturday)
   };
 }
 
@@ -93,7 +102,13 @@ export function generarExcel({ asistencias, nombreDireccion, periodoStr, rango }
             const row = [];
             ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'].forEach(day => {
               const item = weekData[day][i];
-              row.push(item ? `${item.Nombre} ${item.Apellido} (${item.Cedula})` : '');
+              if (item) {
+                const entrada = item.Entrada ? item.Entrada.substring(0, 5) : '--:--';
+                const salida = item.Salida && item.Salida !== 'Sin registrar' ? item.Salida.substring(0, 5) : '--:--';
+                row.push(`${item.Nombre} ${item.Apellido} (${item.Cedula}) [${entrada} - ${salida}]`);
+              } else {
+                row.push('');
+              }
             });
             wsData.push(row);
           }
@@ -293,8 +308,8 @@ export function generarPDF({ asistencias, nombreDireccion, periodoStr, rango }, 
           weekData.days['Sábado'].length
         );
 
-        // Altura de tabla: título (15) + cabeceras (15) + filas (maxRows * 24) + separación (15)
-        const tableHeight = 35 + (maxRows > 0 ? maxRows * 24 : 20);
+        // Altura de tabla: título (15) + cabeceras (15) + filas (maxRows * 27) + separación (15)
+        const tableHeight = 35 + (maxRows > 0 ? maxRows * 27 : 20);
 
         if (y + tableHeight > 730) {
           doc.addPage();
@@ -329,11 +344,15 @@ export function generarPDF({ asistencias, nombreDireccion, periodoStr, rango }, 
               const item = weekData.days[day][r];
               if (item) {
                 const nameStr = `${item.Nombre.charAt(0)}. ${item.Apellido}`;
+                const entrada = item.Entrada ? item.Entrada.substring(0, 5) : '--:--';
+                const salida = item.Salida && item.Salida !== 'Sin registrar' ? item.Salida.substring(0, 5) : '--:--';
+                
                 doc.fontSize(7.5).fillColor('#333333').text(nameStr, 30 + cIdx * colWidth, y, { width: colWidth - 4, align: 'center', height: 10, ellipsis: true });
-                doc.fontSize(6.5).fillColor('#666666').text(item.Cedula.toString(), 30 + cIdx * colWidth, y + 10, { width: colWidth - 4, align: 'center' });
+                doc.fontSize(6.5).fillColor('#666666').text(item.Cedula.toString(), 30 + cIdx * colWidth, y + 9, { width: colWidth - 4, align: 'center' });
+                doc.fontSize(6.5).fillColor('#0071e3').text(`${entrada} - ${salida}`, 30 + cIdx * colWidth, y + 17, { width: colWidth - 4, align: 'center' });
               }
             });
-            y += 24;
+            y += 27;
           }
         }
 

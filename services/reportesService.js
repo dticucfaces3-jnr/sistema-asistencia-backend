@@ -1,11 +1,19 @@
 import { Asistencia, Empleado, Direccion } from '../models/index.js';
 import { Op } from 'sequelize';
 
+// Helper para formatear un objeto Date a YYYY-MM-DD en hora local
+function getLocalDateStr(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 /**
  * Servicio para generar la data del reporte de asistencia.
  * Explica cada parte del código:
  * - Parsea el rango (diario, semanal, mensual) y los valores de fecha seleccionados.
- * - Calcula el rango exacto de fechas (inicio y fin) a consultar en MySQL.
+ * - Calcula el rango exacto de fechas (inicio y fin) a consultar en MySQL en hora local.
  * - Filtra por id_direccion si el usuario es Administrador (obligatorio por seguridad).
  * - Si es Desarrollador, permite filtrar por id_direccion si se le especifica.
  * - Devuelve la data mapeada junto al nombre de la Dirección y una descripción del período.
@@ -19,9 +27,13 @@ export async function getReporteAsistencia({ rango, fecha, semana, mes, id_direc
   const today = new Date();
   
   if (rango === 'diario') {
-    // Si no se provee fecha, usar hoy
-    const targetDate = fecha ? new Date(fecha) : today;
-    const targetDateStr = targetDate.toISOString().split('T')[0];
+    let targetDateStr = '';
+    if (fecha) {
+      // Si ya viene la fecha como string YYYY-MM-DD, se usa directamente
+      targetDateStr = fecha;
+    } else {
+      targetDateStr = getLocalDateStr(today);
+    }
     
     dateFilter = targetDateStr;
     startStr = targetDateStr;
@@ -29,19 +41,20 @@ export async function getReporteAsistencia({ rango, fecha, semana, mes, id_direc
     periodoStr = `Día: ${targetDateStr}`;
   } 
   else if (rango === 'semanal') {
-    // Obtener la fecha base para calcular la semana
-    const baseDate = semana ? new Date(semana) : today;
+    // Para evitar desfases de zona horaria al parsear, adjuntamos T12:00:00
+    const baseDate = semana ? new Date(semana + 'T12:00:00') : today;
     
-    // Calcular lunes y domingo de la semana
+    // Calcular lunes y sábado de la semana laboral
     const day = baseDate.getDay();
     const diff = baseDate.getDate() - day + (day === 0 ? -6 : 1); // Ajuste si es domingo
     
-    const monday = new Date(baseDate.setDate(diff));
+    const monday = new Date(baseDate);
+    monday.setDate(diff);
     const saturday = new Date(monday);
     saturday.setDate(monday.getDate() + 5);
     
-    startStr = monday.toISOString().split('T')[0];
-    endStr = saturday.toISOString().split('T')[0];
+    startStr = getLocalDateStr(monday);
+    endStr = getLocalDateStr(saturday);
     
     dateFilter = { [Op.between]: [startStr, endStr] };
     periodoStr = `Semana del ${startStr} al ${endStr}`;
@@ -60,8 +73,8 @@ export async function getReporteAsistencia({ rango, fecha, semana, mes, id_direc
     const startOfMonth = new Date(year, month, 1);
     const endOfMonth = new Date(year, month + 1, 0); // día 0 del mes siguiente es el último del mes actual
 
-    startStr = startOfMonth.toISOString().split('T')[0];
-    endStr = endOfMonth.toISOString().split('T')[0];
+    startStr = getLocalDateStr(startOfMonth);
+    endStr = getLocalDateStr(endOfMonth);
 
     dateFilter = { [Op.between]: [startStr, endStr] };
     
